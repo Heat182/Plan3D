@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>IFC Modell auf Plan</title>
+  <!-- Model Viewer für 3D/AR -->
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <!-- QR Code Library -->
+  <script src="https://unpkg.com/qrcode/build/qrcode.min.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; overflow: hidden; height: 100%; }
+    #plan {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: url('plan.png') center/contain no-repeat;
+      z-index: 0;
+    }
+    model-viewer {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+    }
+    #controls {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      z-index: 2;
+      background: rgba(255,255,255,0.8);
+      padding: 10px;
+      border-radius: 8px;
+      font-family: sans-serif;
+    }
+    #qrcode {
+      margin-top: 10px;
+    }
+    .btn { cursor: grab; }
+  </style>
+</head>
+<body>
+  <div id="plan"></div>
+  
+  <model-viewer id="viewer"
+    src="model.glb"
+    ar
+    ar-modes="scene-viewer webxr quick-look"
+    camera-controls
+    auto-rotate
+    scale="0.02 0.02 0.02"
+    alt="3D Modell">
+  </model-viewer>
+  
+  <div id="controls">
+    <div>
+      <strong>Position:</strong>
+      X: <span id="posX">0.00</span>m,
+      Y: <span id="posY">0.00</span>m
+    </div>
+    <div>
+      <strong>Skalierung:</strong>
+      <span id="scaleVal">1.00</span>×
+    </div>
+    <div id="qrcode"></div>
+  </div>
+
+  <script>
+    const viewer = document.querySelector('#viewer');
+    const controls = document.querySelector('#controls');
+    const posX = document.querySelector('#posX');
+    const posY = document.querySelector('#posY');
+    const scaleVal = document.querySelector('#scaleVal');
+
+    let offsetX = 0, offsetY = 0, scale = 1;
+    let isDragging = false;
+    let lastMouse = { x: 0, y: 0 };
+
+    // Konvertiert Bildschirm-Pixel zu Modell-Metern (1px = 0.01m im Beispiel)
+    function pxToMeters(px) {
+      return px * 0.01 / scale; // anpassen falls nötig
+    }
+
+    viewer.addEventListener('pointerdown', e => {
+      isDragging = true;
+      lastMouse = { x: e.clientX, y: e.clientY };
+      viewer.style.cursor = 'grabbing';
+    });
+    window.addEventListener('pointerup', () => {
+      isDragging = false;
+      viewer.style.cursor = 'grab';
+    });
+    window.addEventListener('pointermove', e => {
+      if (!isDragging) return;
+      const dx = e.clientX - lastMouse.x;
+      const dy = e.clientY - lastMouse.y;
+      lastMouse = { x: e.clientX, y: e.clientY };
+
+      offsetX += dx * 0.01 / scale; // px zu m
+      offsetY -= dy * 0.01 / scale;
+
+      viewer.style.transform = `translate(${offsetX*50}px, ${-offsetY*50}px) scale(${scale})`;
+      posX.textContent = offsetX.toFixed(2);
+      posY.textContent = offsetY.toFixed(2);
+    });
+
+    // Zoom mit Mausrad / Pinch
+    window.addEventListener('wheel', e => {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.001;
+      scale = Math.min(Math.max(0.5, scale + delta), 5);
+      viewer.style.transform = `translate(${offsetX*50}px, ${-offsetY*50}px) scale(${scale})`;
+      scaleVal.textContent = scale.toFixed(2);
+    }, { passive: false });
+
+    // QR-Code generieren
+    QRCode.toCanvas(document.querySelector('#qrcode'), window.location.href, { width: 100 }, function (error) {
+      if (error) console.error(error);
+    });
+  </script>
+</body>
+</html>
